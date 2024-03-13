@@ -4,7 +4,7 @@ CREATE TYPE prompt_status AS enum (
 );
 
 CREATE TABLE IF NOT EXISTS private.prompts (
-    id bigserial,
+    id bigint primary key generated always as identity,
     owner_id uuid NOT NULL,
     query text NOT NULL,
     similarity_top_k integer NOT NULL DEFAULT 3,
@@ -20,7 +20,7 @@ GRANT ALL PRIVILEGES ON private.prompts_id_seq TO insight_worker;
 GRANT usage, SELECT ON private.prompts_id_seq TO external_user;
 
 CREATE TABLE IF NOT EXISTS private.sources (
-    id bigserial,
+    id bigint primary key generated always as identity,
     prompt_id bigint NOT NULL,
     page_id bigint NOT NULL,
     similarity float NOT NULL,

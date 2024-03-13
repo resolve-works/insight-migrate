@@ -22,7 +22,7 @@ CREATE TABLE private.documents (
 GRANT ALL PRIVILEGES ON private.documents TO insight_worker;
 
 CREATE TABLE IF NOT EXISTS private.pages (
-    id bigserial,
+    id bigint primary key generated always as identity,
     file_id uuid NOT NULL,
     index integer NOT NULL,
     contents text NOT NULL,
