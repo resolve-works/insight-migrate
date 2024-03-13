@@ -5,7 +5,7 @@ build:
 	docker build . --tag=insight-migrate
 
 up:
-	docker run -e POSTGRES_URI=$(uri) insight-migrate
+	docker run --network=host -v ./migrations:/migrations -e POSTGRES_URI=$(uri) insight-migrate
 
 shell:
 	docker run -it -v ./migrations:/migrations -u $$(id -u):$$(id -g) --entrypoint=/bin/sh insight-migrate
