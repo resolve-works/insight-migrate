@@ -11,8 +11,7 @@ CREATE TABLE IF NOT EXISTS private.prompts (
     response text,
     status prompt_status DEFAULT 'answering',
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
-    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (id)
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
 );
 
 GRANT ALL PRIVILEGES ON private.prompts TO insight_worker;
@@ -25,8 +24,7 @@ CREATE TABLE IF NOT EXISTS private.sources (
     page_id bigint NOT NULL,
     similarity float NOT NULL,
     FOREIGN KEY (prompt_id) REFERENCES private.prompts (id) ON DELETE CASCADE,
-    FOREIGN KEY (page_id) REFERENCES private.pages (id) ON DELETE CASCADE,
-    PRIMARY KEY (id)
+    FOREIGN KEY (page_id) REFERENCES private.pages (id) ON DELETE CASCADE
 );
 
 GRANT ALL PRIVILEGES ON private.sources TO insight_worker;

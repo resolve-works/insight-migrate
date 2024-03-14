@@ -27,8 +27,7 @@ CREATE TABLE IF NOT EXISTS private.pages (
     index integer NOT NULL,
     contents text NOT NULL,
     embedding vector (1536),
-    FOREIGN KEY (file_id) REFERENCES private.files (id) ON DELETE CASCADE,
-    PRIMARY KEY (id)
+    FOREIGN KEY (file_id) REFERENCES private.files (id) ON DELETE CASCADE
 );
 
 GRANT ALL PRIVILEGES ON private.pages TO insight_worker;
