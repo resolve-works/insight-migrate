@@ -1,2 +1,3 @@
+ALTER TYPE document_status
+    ADD VALUE 'embedding';
 
-ALTER TYPE document_status ADD VALUE 'embedding';

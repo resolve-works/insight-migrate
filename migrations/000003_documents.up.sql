@@ -1,4 +1,3 @@
-
 CREATE TYPE document_status AS ENUM (
     'ingesting',
     'indexing'
@@ -12,7 +11,7 @@ CREATE TABLE private.documents (
     from_page integer NOT NULL,
     to_page integer NOT NULL,
     status document_status DEFAULT 'ingesting',
-    is_deleted boolean NOT NULL DEFAULT false,
+    is_deleted boolean NOT NULL DEFAULT FALSE,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
@@ -22,7 +21,7 @@ CREATE TABLE private.documents (
 GRANT ALL PRIVILEGES ON private.documents TO insight_worker;
 
 CREATE TABLE IF NOT EXISTS private.pages (
-    id bigint primary key generated always as identity,
+    id bigint PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     file_id uuid NOT NULL,
     index integer NOT NULL,
     contents text NOT NULL,
@@ -31,7 +30,9 @@ CREATE TABLE IF NOT EXISTS private.pages (
 );
 
 GRANT ALL PRIVILEGES ON private.pages TO insight_worker;
+
 GRANT ALL PRIVILEGES ON private.pages_id_seq TO insight_worker;
+
 GRANT usage, SELECT ON private.pages_id_seq TO external_user;
 
 CREATE OR REPLACE FUNCTION set_document_path ()
@@ -46,7 +47,6 @@ BEGIN
         files
     WHERE
         id = NEW.file_id;
-    -- TODO - name files with name
     NEW.path = format('%s/%s/%s.pdf', owner_id, NEW.file_id, NEW.id);
     RETURN NEW;
 END
@@ -74,22 +74,25 @@ SELECT
     status,
     is_deleted
 FROM
-    private.documents 
-WHERE private.documents.is_deleted = false;
+    private.documents
+WHERE
+    private.documents.is_deleted = FALSE;
 
 GRANT ALL PRIVILEGES ON documents TO insight_worker;
+
 GRANT SELECT, INSERT, UPDATE, DELETE ON documents TO external_user;
 
 CREATE OR REPLACE VIEW pages AS
 SELECT
     id,
     file_id,
-    index,
+    INDEX,
     contents
 FROM
     private.pages;
 
 GRANT ALL PRIVILEGES ON pages TO insight_worker;
+
 GRANT SELECT ON pages TO external_user;
 
 CREATE OR REPLACE FUNCTION document (pages)

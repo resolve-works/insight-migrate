@@ -1,10 +1,9 @@
-
 CREATE TYPE prompt_status AS enum (
     'answering'
 );
 
 CREATE TABLE IF NOT EXISTS private.prompts (
-    id bigint primary key generated always as identity,
+    id bigint PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     owner_id uuid NOT NULL,
     query text NOT NULL,
     similarity_top_k integer NOT NULL DEFAULT 3,
@@ -15,11 +14,13 @@ CREATE TABLE IF NOT EXISTS private.prompts (
 );
 
 GRANT ALL PRIVILEGES ON private.prompts TO insight_worker;
+
 GRANT ALL PRIVILEGES ON private.prompts_id_seq TO insight_worker;
+
 GRANT usage, SELECT ON private.prompts_id_seq TO external_user;
 
 CREATE TABLE IF NOT EXISTS private.sources (
-    id bigint primary key generated always as identity,
+    id bigint PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     prompt_id bigint NOT NULL,
     page_id bigint NOT NULL,
     similarity float NOT NULL,
@@ -28,7 +29,9 @@ CREATE TABLE IF NOT EXISTS private.sources (
 );
 
 GRANT ALL PRIVILEGES ON private.sources TO insight_worker;
+
 GRANT ALL PRIVILEGES ON private.sources_id_seq TO insight_worker;
+
 GRANT usage, SELECT ON private.sources_id_seq TO external_user;
 
 CREATE OR REPLACE TRIGGER set_prompt_owner
