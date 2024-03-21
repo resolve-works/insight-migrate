@@ -11,4 +11,4 @@ up:
 	docker run --network=host -v ./migrations:/migrations -e POSTGRES_URI=$(uri) insight-migrate
 
 shell:
-	docker run -it -v ./migrations:/migrations -u $$(id -u):$$(id -g) --entrypoint=/bin/sh insight-migrate
+	docker run -it -v ./migrations:/migrations -u $$(id -u):$$(id -g) insight-migrate /bin/sh
