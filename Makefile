@@ -5,11 +5,8 @@ migrate_uri = "$(uri)?sslmode=disable&x-migrations-table=\"private\".\"schema_mi
 pg_format:
 	pg_format ./migrations/*.sql -i
 
-build:
-	docker build . --tag=insight-migrate
-
 up:
-	docker run --network=host -v ./migrations:/migrations -e POSTGRES_URI=$(migrate_uri) insight-migrate
+	docker run --network=host -v ./migrations:/migrations -e POSTGRES_URI=$(migrate_uri) ghcr.io/followthemoney/insight-migrate
 
 shell:
 	docker run -it -v ./migrations:/migrations -u $$(id -u):$$(id -g) insight-migrate /bin/sh
