@@ -17,10 +17,9 @@ migrate create -ext sql -dir /migrations -seq [NAME]
 make psql
 ```
 
-### Run a down migration
+### Run migrations
 
-To run `[N]` down migrations, you can use the included shell:
+View the `Makefile` for some examples.
 ```
-make shell
-migrate -verbose -path=/migrations -database $POSTGRES_URI down [N]
+make up
 ```
