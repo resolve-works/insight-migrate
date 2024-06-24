@@ -15,7 +15,14 @@ up:
 		-e POSTGRES_URI=$(migrate_uri) \
 		ghcr.io/followthemoney/insight-migrate
 
-down:
+up_one: 
+	docker run --network=host \
+		-v ./migrations:/migrations \
+		-e POSTGRES_URI=$(migrate_uri) \
+		ghcr.io/followthemoney/insight-migrate \
+		/bin/sh -c 'migrate -verbose -path=/migrations -database $$POSTGRES_URI up 1'
+
+down_one:
 	docker run --network=host \
 		-v ./migrations:/migrations \
 		-e POSTGRES_URI=$(migrate_uri) \

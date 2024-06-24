@@ -86,7 +86,7 @@ CREATE OR REPLACE VIEW pages AS
 SELECT
     id,
     file_id,
-    INDEX,
+    index,
     contents
 FROM
     private.pages;

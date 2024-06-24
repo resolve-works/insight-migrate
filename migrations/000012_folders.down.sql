@@ -1,6 +1,6 @@
 
-DROP FUNCTION children(projects);
+DROP FUNCTION children(folders);
 
-DROP VIEW projects;
+DROP VIEW folders;
 
-DROP TABLE private.projects;
+DROP TABLE private.folders;
