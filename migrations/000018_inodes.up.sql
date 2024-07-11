@@ -14,8 +14,12 @@ CREATE TABLE IF NOT EXISTS private.inodes (
     FOREIGN KEY (parent_id) REFERENCES private.inodes (id) ON DELETE CASCADE
 );
 
+GRANT SELECT, INSERT, UPDATE, DELETE ON private.inodes TO external_user;
+
 CREATE OR REPLACE VIEW inodes WITH ( security_invoker=true ) AS
     SELECT * FROM private.inodes WHERE is_deleted = FALSE;
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON inodes TO external_user;
 
 -- Merge document and file tables
 ALTER TABLE private.files ADD COLUMN is_ingested boolean NOT NULL DEFAULT FALSE;
@@ -80,14 +84,14 @@ ALTER TABLE private.files DROP COLUMN dirname;
 CREATE OR REPLACE VIEW files WITH ( security_invoker=true ) AS
     SELECT * FROM private.files;
 
-DROP TRIGGER IF EXISTS set_file_owner ON private.files;
+GRANT SELECT,INSERT,DELETE,UPDATE ON files TO external_user;
+
 DROP TRIGGER IF EXISTS set_file_path ON private.files;
 DROP TRIGGER IF EXISTS set_file_updated_at ON private.files;
 DROP TRIGGER IF EXISTS set_document_path ON private.documents;
 DROP TRIGGER IF EXISTS reset_document_name ON private.documents;
 DROP TRIGGER IF EXISTS reset_document_pagerange ON private.documents;
 
-DROP FUNCTION IF EXISTS set_file_owner;
 DROP FUNCTION IF EXISTS set_file_path;
 DROP FUNCTION IF EXISTS reset_document_name;
 DROP FUNCTION IF EXISTS reset_document_pagerange;
@@ -115,8 +119,6 @@ CREATE OR REPLACE TRIGGER set_inodes_updated_at
 
 ALTER TABLE private.inodes ENABLE ROW LEVEL SECURITY;
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON private.inodes TO external_user;
-
 CREATE POLICY inodes_external_user ON private.inodes 
     USING (owner_id = uuid(current_setting('request.jwt.claims', true)::json->>'sub'))
     WITH CHECK (owner_id = uuid(current_setting('request.jwt.claims', true)::json->>'sub'));
@@ -130,15 +132,17 @@ CREATE OR REPLACE FUNCTION storage_path (inodes)
     RETURNS text
     AS $$
 BEGIN
-    WITH RECURSIVE hierarchy AS (
-        SELECT id, parent_id, 1 AS depth FROM inodes WHERE id = $1.id
+    RETURN (
+        WITH RECURSIVE hierarchy AS (
+            SELECT id, parent_id, 1 AS depth FROM inodes WHERE id = $1.id
 
-        UNION ALL
+            UNION ALL
 
-        SELECT inodes.id, inodes.parent_id, hierarchy.depth + 1 FROM inodes
-            JOIN hierarchy ON inodes.id = hierarchy.parent_id
-    )
-    SELECT string_agg(CAST(id AS TEXT), '/' ORDER BY depth DESC) FROM hierarchy;
+            SELECT inodes.id, inodes.parent_id, hierarchy.depth + 1 FROM inodes
+                JOIN hierarchy ON inodes.id = hierarchy.parent_id
+        )
+        SELECT string_agg(CAST(id AS TEXT), '/' ORDER BY depth DESC) FROM hierarchy
+    );
 END
 $$
 LANGUAGE PLPGSQL;
@@ -148,6 +152,7 @@ GRANT EXECUTE ON FUNCTION storage_path TO external_user;
 CREATE OR REPLACE FUNCTION ancestors (inodes)
     RETURNS SETOF inodes
     AS $$
+BEGIN
     WITH RECURSIVE hierarchy AS (
         SELECT id, parent_id FROM inodes WHERE id = $1.parent_id
 
@@ -157,8 +162,25 @@ CREATE OR REPLACE FUNCTION ancestors (inodes)
             JOIN hierarchy ON inodes.id = hierarchy.parent_id
     )
     SELECT inodes.* FROM hierarchy JOIN inodes ON inodes.id = hierarchy.id;
+END
 $$
-LANGUAGE SQL;
+LANGUAGE PLPGSQL;
 
 GRANT EXECUTE ON FUNCTION ancestors TO external_user;
 
+-- RPC calls to create file with inode
+CREATE FUNCTION create_file(json) 
+    RETURNS SETOF inodes 
+    AS $$
+DECLARE
+    file_id UUID;
+BEGIN
+    INSERT INTO files DEFAULT VALUES RETURNING id INTO file_id;
+    RETURN QUERY INSERT INTO inodes (name, parent_id, file_id) 
+        VALUES (($1->>'name')::text, ($1->>'parent_id')::uuid, file_id) 
+        RETURNING *;
+END
+$$ 
+LANGUAGE PLPGSQL;
+
+GRANT EXECUTE ON FUNCTION create_file TO external_user;
