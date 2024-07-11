@@ -153,7 +153,7 @@ CREATE OR REPLACE FUNCTION ancestors (inodes)
     RETURNS SETOF inodes
     AS $$
 BEGIN
-    WITH RECURSIVE hierarchy AS (
+    RETURN QUERY WITH RECURSIVE hierarchy AS (
         SELECT id, parent_id FROM inodes WHERE id = $1.parent_id
 
         UNION ALL
@@ -167,6 +167,26 @@ $$
 LANGUAGE PLPGSQL;
 
 GRANT EXECUTE ON FUNCTION ancestors TO external_user;
+
+CREATE OR REPLACE FUNCTION descendants (inodes)
+    RETURNS SETOF inodes
+    AS $$
+BEGIN
+    RETURN QUERY WITH RECURSIVE hierarchy AS (
+        SELECT id, parent_id FROM inodes WHERE parent_id = $1.id
+
+        UNION ALL
+
+        SELECT inodes.id, inodes.parent_id FROM inodes
+            JOIN hierarchy ON inodes.parent_id = hierarchy.id
+    )
+    SELECT inodes.* FROM hierarchy JOIN inodes ON inodes.id = hierarchy.id;
+END
+$$
+LANGUAGE PLPGSQL;
+
+GRANT EXECUTE ON FUNCTION descendants TO external_user;
+
 
 -- RPC calls to create file with inode
 CREATE FUNCTION create_file(json) 
