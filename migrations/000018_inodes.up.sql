@@ -15,11 +15,13 @@ CREATE TABLE IF NOT EXISTS private.inodes (
 );
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON private.inodes TO external_user;
+GRANT ALL PRIVILEGES ON private.inodes TO insight_worker;
 
 CREATE OR REPLACE VIEW inodes WITH ( security_invoker=true ) AS
     SELECT * FROM private.inodes WHERE is_deleted = FALSE;
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON inodes TO external_user;
+GRANT ALL PRIVILEGES ON inodes TO insight_worker;
 
 -- Merge document and file tables
 ALTER TABLE private.files ADD COLUMN is_ingested boolean NOT NULL DEFAULT FALSE;
@@ -148,6 +150,7 @@ $$
 LANGUAGE PLPGSQL;
 
 GRANT EXECUTE ON FUNCTION storage_path TO external_user;
+GRANT EXECUTE ON FUNCTION storage_path TO insight_worker;
 
 CREATE OR REPLACE FUNCTION ancestors (inodes)
     RETURNS SETOF inodes
