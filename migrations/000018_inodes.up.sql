@@ -150,25 +150,6 @@ LANGUAGE PLPGSQL;
 
 GRANT EXECUTE ON FUNCTION ancestors TO external_user;
 
-CREATE OR REPLACE FUNCTION descendants (inode_id uuid)
-    RETURNS SETOF inodes
-    AS $$
-BEGIN
-    RETURN QUERY WITH RECURSIVE hierarchy AS (
-        SELECT id, parent_id FROM inodes WHERE parent_id = inode_id
-
-        UNION ALL
-
-        SELECT inodes.id, inodes.parent_id FROM inodes
-            JOIN hierarchy ON inodes.parent_id = hierarchy.id
-    )
-    SELECT inodes.* FROM hierarchy JOIN inodes ON inodes.id = hierarchy.id;
-END
-$$
-LANGUAGE PLPGSQL;
-
-GRANT EXECUTE ON FUNCTION descendants TO insight_worker;
-
 CREATE OR REPLACE FUNCTION set_inode_path ()
     RETURNS TRIGGER
     AS $$
