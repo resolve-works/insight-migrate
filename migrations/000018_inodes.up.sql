@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS private.inodes (
     parent_id uuid,
     owner_id uuid NOT NULL,
     name text NOT NULL,
+    path text,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
     is_deleted boolean NOT NULL DEFAULT FALSE,
@@ -38,7 +39,7 @@ CREATE OR REPLACE FUNCTION mark_file_reingest ()
     RETURNS TRIGGER
     AS $$
 BEGIN
-    IF NEW.from_page != OLD.from_page OR (NEW.to_page != OLD.to_page AND OLD.to_page != NULL) THEN
+    IF NEW.from_page != OLD.from_page OR (NEW.to_page != OLD.to_page AND OLD.to_page IS NOT NULL) THEN
         NEW.is_ingested = false;
         NEW.is_indexed = false;
         NEW.is_embedded = false;
@@ -108,35 +109,14 @@ DROP FUNCTION parents (folders);
 DROP VIEW folders;
 DROP TABLE private.folders;
 
--- Add security and triggers
-CREATE OR REPLACE TRIGGER set_inode_owner
-    BEFORE INSERT ON private.inodes
-    FOR EACH ROW
-    EXECUTE FUNCTION set_owner ();
-
-CREATE OR REPLACE TRIGGER set_inodes_updated_at
-    BEFORE UPDATE ON private.inodes
-    FOR EACH ROW
-    EXECUTE FUNCTION set_updated_at ();
-
-ALTER TABLE private.inodes ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY inodes_external_user ON private.inodes 
-    USING (owner_id = uuid(current_setting('request.jwt.claims', true)::json->>'sub'))
-    WITH CHECK (owner_id = uuid(current_setting('request.jwt.claims', true)::json->>'sub'));
-
-CREATE POLICY inodes_insight_worker ON private.inodes TO insight_worker 
-    USING (true)
-    WITH CHECK (true);
-
 -- Inode functions
-CREATE OR REPLACE FUNCTION storage_path (inodes)
+CREATE OR REPLACE FUNCTION storage_path (inode_id uuid)
     RETURNS text
     AS $$
 BEGIN
     RETURN (
         WITH RECURSIVE hierarchy AS (
-            SELECT id, parent_id, 1 AS depth FROM inodes WHERE id = $1.id
+            SELECT id, parent_id, 1 AS depth FROM inodes WHERE id = inode_id
 
             UNION ALL
 
@@ -149,8 +129,8 @@ END
 $$
 LANGUAGE PLPGSQL;
 
-GRANT EXECUTE ON FUNCTION storage_path TO external_user;
 GRANT EXECUTE ON FUNCTION storage_path TO insight_worker;
+GRANT EXECUTE ON FUNCTION storage_path TO external_user;
 
 CREATE OR REPLACE FUNCTION ancestors (inodes)
     RETURNS SETOF inodes
@@ -171,12 +151,12 @@ LANGUAGE PLPGSQL;
 
 GRANT EXECUTE ON FUNCTION ancestors TO external_user;
 
-CREATE OR REPLACE FUNCTION descendants (inodes)
+CREATE OR REPLACE FUNCTION descendants (inode_id uuid)
     RETURNS SETOF inodes
     AS $$
 BEGIN
     RETURN QUERY WITH RECURSIVE hierarchy AS (
-        SELECT id, parent_id FROM inodes WHERE parent_id = $1.id
+        SELECT id, parent_id FROM inodes WHERE parent_id = inode_id
 
         UNION ALL
 
@@ -188,7 +168,48 @@ END
 $$
 LANGUAGE PLPGSQL;
 
-GRANT EXECUTE ON FUNCTION descendants TO external_user;
+GRANT EXECUTE ON FUNCTION descendants TO insight_worker;
+
+CREATE OR REPLACE FUNCTION set_inode_path ()
+    RETURNS TRIGGER
+    AS $$
+BEGIN
+    IF NEW.parent_id IS NOT NULL THEN
+        -- Can't use storage path on id itself here, as row is not yet inserted
+        NEW.path = storage_path(NEW.parent_id) || '/' || NEW.id;
+    ELSE
+        NEW.path = NEW.id;
+    END IF;
+    RETURN NEW;
+END;
+$$
+LANGUAGE PLPGSQL;
+
+-- Add security and triggers
+CREATE OR REPLACE TRIGGER set_inode_path
+    BEFORE INSERT ON private.inodes
+    FOR EACH ROW
+    EXECUTE FUNCTION set_inode_path ();
+
+CREATE OR REPLACE TRIGGER set_inode_owner
+    BEFORE INSERT ON private.inodes
+    FOR EACH ROW
+    EXECUTE FUNCTION set_owner ();
+
+CREATE OR REPLACE TRIGGER set_inodes_updated_at
+    BEFORE UPDATE ON private.inodes
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at ();
+
+ALTER TABLE private.inodes ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY inodes_external_user ON private.inodes 
+    USING (owner_id = uuid(current_setting('request.jwt.claims', true)::json->>'sub'))
+    WITH CHECK (owner_id = uuid(current_setting('request.jwt.claims', true)::json->>'sub'));
+
+CREATE POLICY inodes_insight_worker ON private.inodes TO insight_worker 
+    USING (true)
+    WITH CHECK (true);
 
 
 -- RPC calls to create file with inode
