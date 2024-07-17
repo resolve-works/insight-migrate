@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS private.inodes (
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
     is_deleted boolean NOT NULL DEFAULT FALSE,
+    is_indexed boolean NOT NULL DEFAULT FALSE,
     file_id uuid,
     PRIMARY KEY (id),
     FOREIGN KEY (file_id) REFERENCES private.files (id) ON DELETE CASCADE,
@@ -26,10 +27,9 @@ GRANT ALL PRIVILEGES ON inodes TO insight_worker;
 
 -- Merge document and file tables
 ALTER TABLE private.files ADD COLUMN is_ingested boolean NOT NULL DEFAULT FALSE;
-ALTER TABLE private.files ADD COLUMN is_indexed boolean NOT NULL DEFAULT FALSE;
 ALTER TABLE private.files ADD COLUMN is_embedded boolean NOT NULL DEFAULT FALSE;
 ALTER TABLE private.files ADD COLUMN is_ready boolean GENERATED ALWAYS 
-    AS (is_uploaded AND is_ingested AND is_indexed AND is_embedded) STORED;
+    AS (is_uploaded AND is_ingested AND is_embedded) STORED;
 
 ALTER TABLE private.files ADD COLUMN from_page integer NOT NULL DEFAULT 0;
 ALTER TABLE private.files ADD COLUMN to_page integer;
@@ -41,7 +41,6 @@ CREATE OR REPLACE FUNCTION mark_file_reingest ()
 BEGIN
     IF NEW.from_page != OLD.from_page OR (NEW.to_page != OLD.to_page AND OLD.to_page IS NOT NULL) THEN
         NEW.is_ingested = false;
-        NEW.is_indexed = false;
         NEW.is_embedded = false;
     END IF;
 
@@ -55,7 +54,7 @@ CREATE OR REPLACE TRIGGER mark_file_reingest
     FOR EACH ROW
     EXECUTE FUNCTION mark_file_reingest ();
 
-CREATE OR REPLACE FUNCTION mark_file_reindex ()
+CREATE OR REPLACE FUNCTION mark_inode_reindex ()
     RETURNS TRIGGER
     AS $$
 BEGIN
@@ -68,10 +67,10 @@ END;
 $$
 LANGUAGE PLPGSQL;
 
-CREATE OR REPLACE TRIGGER mark_file_reindex
-    BEFORE UPDATE ON private.documents
+CREATE OR REPLACE TRIGGER mark_inode_reindex
+    BEFORE UPDATE ON private.inodes
     FOR EACH ROW
-    EXECUTE FUNCTION mark_file_reindex ();
+    EXECUTE FUNCTION mark_inode_reindex ();
 
 DROP VIEW files;
 
