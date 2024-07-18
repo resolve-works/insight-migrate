@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS private.inodes (
     id uuid DEFAULT gen_random_uuid (),
     parent_id uuid,
     owner_id uuid NOT NULL,
-    name text NOT NULL,
+    name text NOT NULL CHECK (trim(val) <> ''),
     path citext NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
