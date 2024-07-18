@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS private.inodes (
     parent_id uuid,
     owner_id uuid NOT NULL,
     name text NOT NULL,
-    path text,
+    path citext NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
     is_deleted boolean NOT NULL DEFAULT FALSE,
@@ -13,7 +13,8 @@ CREATE TABLE IF NOT EXISTS private.inodes (
     file_id uuid,
     PRIMARY KEY (id),
     FOREIGN KEY (file_id) REFERENCES private.files (id) ON DELETE CASCADE,
-    FOREIGN KEY (parent_id) REFERENCES private.inodes (id) ON DELETE CASCADE
+    FOREIGN KEY (parent_id) REFERENCES private.inodes (id) ON DELETE CASCADE,
+    UNIQUE (owner_id, path)
 );
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON private.inodes TO external_user;
@@ -109,27 +110,27 @@ DROP VIEW folders;
 DROP TABLE private.folders;
 
 -- Inode functions
-CREATE OR REPLACE FUNCTION storage_path (inode_id uuid)
+CREATE OR REPLACE FUNCTION inode_path (inode_id uuid)
     RETURNS text
     AS $$
 BEGIN
     RETURN (
         WITH RECURSIVE hierarchy AS (
-            SELECT id, parent_id, 1 AS depth FROM inodes WHERE id = inode_id
+            SELECT id, name, parent_id, 1 AS depth FROM inodes WHERE id = inode_id
 
             UNION ALL
 
-            SELECT inodes.id, inodes.parent_id, hierarchy.depth + 1 FROM inodes
+            SELECT inodes.id, inodes.name, inodes.parent_id, hierarchy.depth + 1 FROM inodes
                 JOIN hierarchy ON inodes.id = hierarchy.parent_id
         )
-        SELECT string_agg(CAST(id AS TEXT), '/' ORDER BY depth DESC) FROM hierarchy
+        SELECT string_agg(name, '/' ORDER BY depth DESC) FROM hierarchy
     );
 END
 $$
 LANGUAGE PLPGSQL;
 
-GRANT EXECUTE ON FUNCTION storage_path TO insight_worker;
-GRANT EXECUTE ON FUNCTION storage_path TO external_user;
+GRANT EXECUTE ON FUNCTION inode_path TO insight_worker;
+GRANT EXECUTE ON FUNCTION inode_path TO external_user;
 
 CREATE OR REPLACE FUNCTION ancestors (inodes)
     RETURNS SETOF inodes
@@ -156,9 +157,9 @@ CREATE OR REPLACE FUNCTION set_inode_path ()
 BEGIN
     IF NEW.parent_id IS NOT NULL THEN
         -- Can't use storage path on id itself here, as row is not yet inserted
-        NEW.path = storage_path(NEW.parent_id) || '/' || NEW.id;
+        NEW.path = inode_path(NEW.parent_id) || '/' || NEW.name;
     ELSE
-        NEW.path = NEW.id;
+        NEW.path = NEW.name;
     END IF;
     RETURN NEW;
 END;
