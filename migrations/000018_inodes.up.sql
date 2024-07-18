@@ -4,15 +4,13 @@ CREATE TABLE IF NOT EXISTS private.inodes (
     id uuid DEFAULT gen_random_uuid (),
     parent_id uuid,
     owner_id uuid NOT NULL,
-    name text NOT NULL CHECK (trim(val) <> ''),
+    name text NOT NULL CHECK (trim(name) <> ''),
     path citext NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
     is_deleted boolean NOT NULL DEFAULT FALSE,
     is_indexed boolean NOT NULL DEFAULT FALSE,
-    file_id uuid,
     PRIMARY KEY (id),
-    FOREIGN KEY (file_id) REFERENCES private.files (id) ON DELETE CASCADE,
     FOREIGN KEY (parent_id) REFERENCES private.inodes (id) ON DELETE CASCADE,
     UNIQUE (owner_id, path)
 );
@@ -34,6 +32,8 @@ ALTER TABLE private.files ADD COLUMN is_ready boolean GENERATED ALWAYS
 
 ALTER TABLE private.files ADD COLUMN from_page integer NOT NULL DEFAULT 0;
 ALTER TABLE private.files ADD COLUMN to_page integer;
+
+ALTER TABLE private.files ADD COLUMN inode_id uuid NOT NULL REFERENCES private.inodes(id) ON DELETE CASCADE UNIQUE;
 
 -- Move document table functions to files
 CREATE OR REPLACE FUNCTION mark_file_reingest ()
@@ -198,12 +198,14 @@ CREATE FUNCTION create_file(json)
     RETURNS SETOF inodes 
     AS $$
 DECLARE
-    file_id UUID;
+    inode_id UUID;
 BEGIN
-    INSERT INTO files DEFAULT VALUES RETURNING id INTO file_id;
-    RETURN QUERY INSERT INTO inodes (name, parent_id, file_id) 
-        VALUES (($1->>'name')::text, ($1->>'parent_id')::uuid, file_id) 
-        RETURNING *;
+    INSERT INTO inodes (name, parent_id) 
+        VALUES (($1->>'name')::text, ($1->>'parent_id')::uuid) 
+        RETURNING id INTO inode_id;
+    INSERT INTO files (inode_id) VALUES (inode_id);
+
+    RETURN QUERY SELECT * FROM inodes WHERE id=inode_id;
 END
 $$ 
 LANGUAGE PLPGSQL;
