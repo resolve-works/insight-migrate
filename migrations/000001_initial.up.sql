@@ -1,7 +1,11 @@
+
+CREATE TYPE inode_type AS ENUM ('folder', 'file');
+
 CREATE TABLE private.inodes (
     id bigint PRIMARY KEY generated always as identity,
     parent_id bigint REFERENCES private.inodes(id) ON DELETE CASCADE,
     owner_id uuid NOT NULL,
+    type inode_type NOT NULL DEFAULT 'folder',
     name text NOT NULL CHECK (TRIM(name) <> ''),
     path citext NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
@@ -12,7 +16,8 @@ CREATE TABLE private.inodes (
 );
 
 CREATE TABLE private.files (
-    inode_id bigint PRIMARY KEY REFERENCES private.inodes(id) ON DELETE CASCADE,
+    id bigint PRIMARY KEY generated always as identity,
+    inode_id bigint REFERENCES private.inodes(id) ON DELETE CASCADE UNIQUE,
     is_uploaded boolean DEFAULT false NOT NULL,
     is_ingested boolean DEFAULT false NOT NULL,
     is_embedded boolean DEFAULT false NOT NULL,
@@ -26,7 +31,8 @@ CREATE TABLE private.pages (
     inode_id bigint NOT NULL REFERENCES private.inodes(id) ON DELETE CASCADE,
     index integer NOT NULL,
     contents text NOT NULL,
-    embedding vector(1536)
+    embedding vector(1536),
+    UNIQUE (inode_id, index)
 );
 
 CREATE TABLE private.prompts (
@@ -77,8 +83,8 @@ CREATE FUNCTION create_file(json) RETURNS SETOF inodes
 DECLARE
     inode_id bigint;
 BEGIN
-    INSERT INTO inodes (name, parent_id) 
-        VALUES (($1->>'name')::text, ($1->>'parent_id')::uuid) 
+    INSERT INTO inodes (name, parent_id, type) 
+        VALUES (($1->>'name')::text, ($1->>'parent_id')::bigint, 'file') 
         RETURNING id INTO inode_id;
     INSERT INTO files (inode_id) VALUES (inode_id);
     RETURN QUERY SELECT * FROM inodes WHERE id=inode_id;
@@ -181,27 +187,31 @@ CREATE POLICY sources_insight_worker ON private.sources TO insight_worker USING 
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE private.inodes TO external_user;
 GRANT ALL ON TABLE private.inodes TO insight_worker;
-
 GRANT SELECT,USAGE ON SEQUENCE private.inodes_id_seq TO external_user;
 GRANT ALL ON SEQUENCE private.inodes_id_seq TO insight_worker;
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE private.files TO external_user;
 GRANT ALL ON TABLE private.files TO insight_worker;
-
 GRANT SELECT ON TABLE private.pages TO external_user;
 GRANT ALL ON TABLE private.pages TO insight_worker;
-
 GRANT SELECT,USAGE ON SEQUENCE private.pages_id_seq TO external_user;
 GRANT ALL ON SEQUENCE private.pages_id_seq TO insight_worker;
-
 GRANT SELECT,INSERT ON TABLE private.prompts TO external_user;
 GRANT ALL ON TABLE private.prompts TO insight_worker;
-
 GRANT SELECT,USAGE ON SEQUENCE private.prompts_id_seq TO external_user;
 GRANT ALL ON SEQUENCE private.prompts_id_seq TO insight_worker;
-
 GRANT SELECT ON TABLE private.sources TO external_user;
 GRANT ALL ON TABLE private.sources TO insight_worker;
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE inodes TO external_user;
+GRANT ALL ON TABLE inodes TO insight_worker;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE files TO external_user;
+GRANT ALL ON TABLE files TO insight_worker;
+GRANT SELECT ON TABLE pages TO external_user;
+GRANT ALL ON TABLE pages TO insight_worker;
+GRANT SELECT,INSERT ON TABLE prompts TO external_user;
+GRANT ALL ON TABLE prompts TO insight_worker;
+GRANT SELECT ON TABLE sources TO external_user;
+GRANT ALL ON TABLE sources TO insight_worker;
 
 GRANT ALL ON FUNCTION ancestors(inodes) TO external_user;
 GRANT ALL ON FUNCTION create_file(json) TO external_user;
