@@ -11,15 +11,22 @@ make shell
 migrate create -ext sql -dir /migrations -seq [NAME]
 ```
 
-### Get a psql shell
-
-```
-make psql
-```
-
 ### Run migrations
 
 View the `Makefile` for some examples.
 ```
 make up
 ```
+
+### Making manual changes
+
+You can start a sql shell with:
+```
+make psql
+```
+
+For example, when you want to change the database migration table:
+```
+update private.schema_migrations set dirty=False, version='1';
+```
+
