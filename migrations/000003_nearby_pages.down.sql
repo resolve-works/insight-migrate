@@ -13,6 +13,9 @@ CREATE VIEW prompts WITH (security_invoker=true) AS
 GRANT SELECT,INSERT ON TABLE prompts TO external_user;
 GRANT ALL ON TABLE prompts TO insight_worker;
 
+GRANT SELECT,INSERT ON TABLE private.prompts TO external_user;
+GRANT ALL ON TABLE prompts TO external_user;
+
 -- reset create_file function to json parameters
 DROP FUNCTION create_file(name text, parent_id bigint);
 

@@ -5,8 +5,8 @@ ALTER TABLE private.prompts ADD COLUMN embedding vector(1536);
 DROP VIEW prompts;
 CREATE VIEW prompts WITH (security_invoker=true) AS
  SELECT * FROM private.prompts;
-GRANT SELECT,INSERT ON TABLE prompts TO external_user;
-GRANT ALL ON TABLE prompts TO insight_worker;
+GRANT SELECT,INSERT,UPDATE ON TABLE private.prompts TO external_user;
+GRANT SELECT,INSERT,UPDATE ON TABLE prompts TO external_user;
 
 GRANT SELECT,INSERT ON TABLE sources TO external_user;
 GRANT SELECT,INSERT ON TABLE private.sources TO external_user;
@@ -40,7 +40,6 @@ BEGIN
     );
 END
 $$;
-
 
 CREATE OR REPLACE FUNCTION create_prompt(query text, similarity_top_k int, embedding vector(1536))
     RETURNS SETOF prompts
