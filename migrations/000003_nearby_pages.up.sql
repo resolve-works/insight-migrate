@@ -8,7 +8,10 @@ CREATE VIEW prompts WITH (security_invoker=true) AS
 GRANT SELECT,INSERT ON TABLE prompts TO external_user;
 GRANT ALL ON TABLE prompts TO insight_worker;
 
-CREATE OR REPLACE FUNCTION create_prompt(query text, similarity_top_k int, query_embedding vector(1536))
+GRANT SELECT,INSERT ON TABLE sources TO external_user;
+GRANT SELECT,INSERT ON TABLE private.sources TO external_user;
+
+CREATE OR REPLACE FUNCTION create_prompt(query text, similarity_top_k int, embedding vector(1536))
     RETURNS SETOF prompts
     LANGUAGE plpgsql
     AS $$
@@ -16,11 +19,13 @@ DECLARE
     prompt_id bigint;
 BEGIN
     INSERT INTO prompts (query, similarity_top_k, embedding) 
-        VALUES (query, similarity_top_k, query_embedding)
+        VALUES (query, similarity_top_k, embedding)
         RETURNING id INTO prompt_id;
 
     INSERT INTO sources (prompt_id, page_id, similarity)
-        SELECT prompt_id, pages.id as page_id, pages.embedding <=> query_embedding AS similarity
+        -- $3 = embedding. The name 'embedding' is in conflict with the pages.embedding column.
+        -- Changing the argument name would however change the argument name in the Postgrest REST api.
+        SELECT prompt_id, pages.id as page_id, pages.embedding <=> $3 AS similarity
         FROM pages
         WHERE pages.embedding IS NOT NULL
         ORDER BY similarity ASC

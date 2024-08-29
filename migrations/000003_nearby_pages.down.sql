@@ -1,4 +1,7 @@
 
+GRANT SELECT ON TABLE sources TO external_user;
+GRANT SELECT ON TABLE private.sources TO external_user;
+
 DROP FUNCTION create_prompt(query text, similarity_top_k int, embedding vector(1536));
 
 DROP VIEW prompts;
