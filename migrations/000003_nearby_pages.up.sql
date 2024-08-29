@@ -11,6 +11,37 @@ GRANT ALL ON TABLE prompts TO insight_worker;
 GRANT SELECT,INSERT ON TABLE sources TO external_user;
 GRANT SELECT,INSERT ON TABLE private.sources TO external_user;
 
+CREATE OR REPLACE FUNCTION set_inode_path() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    IF NEW.parent_id IS NOT NULL THEN
+        -- Can't use storage path on id itself here, as row is not yet inserted
+        NEW.path = inode_path(NEW.parent_id) || '/' || NEW.name;
+    ELSE
+        NEW.path = '/' || NEW.name;
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION inode_path(inode_id bigint) RETURNS text
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN (
+        WITH RECURSIVE hierarchy AS (
+            SELECT id, name, parent_id, 1 AS depth FROM inodes WHERE id = inode_id
+            UNION ALL
+            SELECT inodes.id, inodes.name, inodes.parent_id, hierarchy.depth + 1 FROM inodes
+                JOIN hierarchy ON inodes.id = hierarchy.parent_id
+        )
+        SELECT '/' || string_agg(name, '/' ORDER BY depth DESC) FROM hierarchy
+    );
+END
+$$;
+
+
 CREATE OR REPLACE FUNCTION create_prompt(query text, similarity_top_k int, embedding vector(1536))
     RETURNS SETOF prompts
     LANGUAGE plpgsql
