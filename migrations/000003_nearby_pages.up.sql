@@ -11,6 +11,7 @@ CREATE TABLE private.conversations_inodes (
     PRIMARY KEY (prompt_id, inode_id)
 );
 
+ALTER TABLE private.prompts DROP COLUMN owner_id uuid;
 ALTER TABLE private.prompts ADD COLUMN embedding vector(1536);
 ALTER TABLE private.prompts ADD COLUMN conversation_id bigint NOT NULL REFERENCES private.conversations(id) ON DELETE CASCADE;
 
@@ -41,11 +42,14 @@ DROP VIEW prompts;
 CREATE VIEW prompts WITH (security_invoker=true) AS
  SELECT * FROM private.prompts;
 
--- Allow external user to update prompts as prompt logic moved to frontend
+-- Allow external user as prompt logic moved to frontend
+GRANT SELECT,INSERT ON TABLE private.conversations TO external_user;
+GRANT SELECT,INSERT ON TABLE conversations TO external_user;
+GRANT SELECT,INSERT ON TABLE private.conversations_inodes TO external_user;
+
 GRANT SELECT,INSERT,UPDATE ON TABLE private.prompts TO external_user;
 GRANT SELECT,INSERT,UPDATE ON TABLE prompts TO external_user;
 
--- Allow external user to create sources as prompt logic moved to frontend
 GRANT SELECT,INSERT ON TABLE sources TO external_user;
 GRANT SELECT,INSERT ON TABLE private.sources TO external_user;
 
