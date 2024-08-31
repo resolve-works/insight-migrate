@@ -23,9 +23,6 @@ CREATE POLICY sources_insight_worker ON private.sources TO insight_worker USING 
 -- Recreate previous trigger set_prompt_owner
 CREATE TRIGGER set_prompt_owner BEFORE INSERT ON private.prompts FOR EACH ROW EXECUTE FUNCTION set_owner();
 
--- Drop create_prompt function
-DROP FUNCTION create_prompt(text, int, vector(1536));
-
 DROP VIEW IF EXISTS conversations;
 DROP VIEW IF EXISTS prompts;
 
