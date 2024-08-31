@@ -3,7 +3,7 @@
 CREATE TABLE private.conversations (
     id bigint PRIMARY KEY generated always as identity,
     owner_id uuid NOT NULL
-)
+);
 
 CREATE TABLE private.conversations_inodes (
     prompt_id bigint NOT NULL REFERENCES private.prompts(id) ON DELETE CASCADE,
@@ -11,21 +11,34 @@ CREATE TABLE private.conversations_inodes (
     PRIMARY KEY (prompt_id, inode_id)
 );
 
-ALTER TABLE private.prompts DROP COLUMN owner_id uuid;
 ALTER TABLE private.prompts ADD COLUMN embedding vector(1536);
-ALTER TABLE private.prompts ADD COLUMN conversation_id bigint NOT NULL REFERENCES private.conversations(id) ON DELETE CASCADE;
+ALTER TABLE private.prompts ADD COLUMN conversation_id bigint REFERENCES private.conversations(id) ON DELETE CASCADE;
 
--- Set conversation owner now instead of prompt
-CREATE TRIGGER set_conversation_owner BEFORE INSERT ON private.conversations FOR EACH ROW EXECUTE FUNCTION set_owner();
+DO $$
+DECLARE
+    r RECORD;
+    new_conversation_id bigint;
+BEGIN
+    FOR r IN SELECT * FROM private.prompts LOOP
+        INSERT INTO private.conversations (owner_id) VALUES (r.owner_id) RETURNING id INTO new_conversation_id;
+
+        UPDATE private.prompts SET conversation_id = new_conversation_id WHERE id = r.id;
+    END LOOP;
+END $$;
+
+-- Ownership will switch to conversations
 DROP TRIGGER IF EXISTS set_prompt_owner ON private.prompts;
+DROP POLICY prompts_external_user ON private.prompts;
+DROP VIEW IF EXISTS prompts;
+ALTER TABLE private.prompts DROP COLUMN IF EXISTS owner_id;
 
--- Change the row level security to the conversations table
+CREATE TRIGGER set_conversation_owner BEFORE INSERT ON private.conversations FOR EACH ROW EXECUTE FUNCTION set_owner();
+
 ALTER TABLE private.conversations ENABLE ROW LEVEL SECURITY;
 CREATE POLICY conversations_external_user ON private.conversations 
     USING ((owner_id = (((current_setting('request.jwt.claims'::text, true))::json ->> 'sub'::text))::uuid)) 
     WITH CHECK ((owner_id = (((current_setting('request.jwt.claims'::text, true))::json ->> 'sub'::text))::uuid));
 
-DROP POLICY prompts_external_user ON private.prompts;
 CREATE POLICY prompts_external_worker ON private.prompts USING ((conversation_id = ( SELECT conversations.id
    FROM private.conversations
   WHERE (conversations.id = prompts.conversation_id))));
@@ -38,7 +51,6 @@ DROP POLICY sources_insight_worker ON private.sources;
 CREATE VIEW conversations WITH (security_invoker=true) AS
  SELECT * FROM private.conversations;
 
-DROP VIEW prompts;
 CREATE VIEW prompts WITH (security_invoker=true) AS
  SELECT * FROM private.prompts;
 
