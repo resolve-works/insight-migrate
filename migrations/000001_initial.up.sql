@@ -160,7 +160,9 @@ CREATE TRIGGER set_prompt_owner BEFORE INSERT ON private.prompts FOR EACH ROW EX
 CREATE TRIGGER set_prompt_updated_at BEFORE UPDATE ON private.prompts FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 ALTER TABLE private.inodes ENABLE ROW LEVEL SECURITY;
-CREATE POLICY inodes_external_user ON private.inodes USING ((owner_id = (((current_setting('request.jwt.claims'::text, true))::json ->> 'sub'::text))::uuid)) WITH CHECK ((owner_id = (((current_setting('request.jwt.claims'::text, true))::json ->> 'sub'::text))::uuid));
+CREATE POLICY inodes_external_user ON private.inodes 
+    USING ((owner_id = (((current_setting('request.jwt.claims'::text, true))::json ->> 'sub'::text))::uuid)) 
+    WITH CHECK ((owner_id = (((current_setting('request.jwt.claims'::text, true))::json ->> 'sub'::text))::uuid));
 CREATE POLICY inodes_insight_worker ON private.inodes TO insight_worker USING (true) WITH CHECK (true);
 
 ALTER TABLE private.files ENABLE ROW LEVEL SECURITY;
@@ -176,7 +178,9 @@ CREATE POLICY pages_external_user ON private.pages USING ((inode_id = ( SELECT i
 CREATE POLICY pages_insight_worker ON private.pages TO insight_worker USING (true) WITH CHECK (true);
 
 ALTER TABLE private.prompts ENABLE ROW LEVEL SECURITY;
-CREATE POLICY prompts_external_user ON private.prompts USING ((owner_id = (((current_setting('request.jwt.claims'::text, true))::json ->> 'sub'::text))::uuid)) WITH CHECK ((owner_id = (((current_setting('request.jwt.claims'::text, true))::json ->> 'sub'::text))::uuid));
+CREATE POLICY prompts_external_user ON private.prompts 
+    USING ((owner_id = (((current_setting('request.jwt.claims'::text, true))::json ->> 'sub'::text))::uuid)) 
+    WITH CHECK ((owner_id = (((current_setting('request.jwt.claims'::text, true))::json ->> 'sub'::text))::uuid));
 CREATE POLICY prompts_insight_worker ON private.prompts TO insight_worker USING (true) WITH CHECK (true);
 
 ALTER TABLE private.sources ENABLE ROW LEVEL SECURITY;
