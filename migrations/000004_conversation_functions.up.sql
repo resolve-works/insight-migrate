@@ -4,6 +4,7 @@ DROP VIEW IF EXISTS prompts;
 ALTER TABLE private.prompts DROP COLUMN IF EXISTS similarity_top_k;
 CREATE VIEW prompts WITH (security_invoker=true) AS
     SELECT * FROM private.prompts;
+GRANT SELECT,INSERT,UPDATE ON TABLE prompts TO external_user;
 
 -- Create conversation with linked folder inodes
 CREATE OR REPLACE FUNCTION create_conversation(paths citext[])

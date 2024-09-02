@@ -2,7 +2,9 @@
 -- Create conversations and link them with prompts with inodes for filtering
 CREATE TABLE private.conversations (
     id bigint PRIMARY KEY generated always as identity,
-    owner_id uuid NOT NULL
+    owner_id uuid NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE private.conversations_inodes (
@@ -33,6 +35,7 @@ DROP VIEW IF EXISTS prompts;
 ALTER TABLE private.prompts DROP COLUMN IF EXISTS owner_id;
 
 CREATE TRIGGER set_conversation_owner BEFORE INSERT ON private.conversations FOR EACH ROW EXECUTE FUNCTION set_owner();
+CREATE TRIGGER set_conversation_updated_at BEFORE UPDATE ON private.conversations FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 ALTER TABLE private.conversations ENABLE ROW LEVEL SECURITY;
 CREATE POLICY conversations_external_user ON private.conversations 
