@@ -14,6 +14,7 @@ CREATE TABLE private.conversations_inodes (
 );
 
 ALTER TABLE private.prompts ADD COLUMN embedding vector(1536);
+-- Not null is allowed as we will update the prompts table next
 ALTER TABLE private.prompts ADD COLUMN conversation_id bigint REFERENCES private.conversations(id) ON DELETE CASCADE;
 
 DO $$
@@ -27,6 +28,9 @@ BEGIN
         UPDATE private.prompts SET conversation_id = new_conversation_id WHERE id = r.id;
     END LOOP;
 END $$;
+
+-- Set not null now that existing prompts have gotten a conversation_id
+ALTER TABLE private.prompts ALTER COLUMN conversation_id SET NOT NULL;
 
 -- Ownership will switch to conversations
 DROP TRIGGER IF EXISTS set_prompt_owner ON private.prompts;
