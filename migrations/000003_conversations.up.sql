@@ -8,9 +8,9 @@ CREATE TABLE private.conversations (
 );
 
 CREATE TABLE private.conversations_inodes (
-    prompt_id bigint NOT NULL REFERENCES private.prompts(id) ON DELETE CASCADE,
-    inode_id bigint REFERENCES private.inodes(id) ON DELETE CASCADE,
-    PRIMARY KEY (prompt_id, inode_id)
+    conversation_id bigint NOT NULL REFERENCES private.conversations(id) ON DELETE CASCADE,
+    inode_id bigint NOT NULL REFERENCES private.inodes(id) ON DELETE CASCADE,
+    PRIMARY KEY (conversation_id, inode_id)
 );
 
 ALTER TABLE private.prompts ADD COLUMN embedding vector(1536);
@@ -58,6 +58,9 @@ DROP POLICY sources_insight_worker ON private.sources;
 CREATE VIEW conversations WITH (security_invoker=true) AS
  SELECT * FROM private.conversations;
 
+CREATE VIEW conversations_inodes WITH (security_invoker=true) AS
+ SELECT * FROM private.conversations_inodes;
+
 CREATE VIEW prompts WITH (security_invoker=true) AS
  SELECT * FROM private.prompts;
 
@@ -65,6 +68,7 @@ CREATE VIEW prompts WITH (security_invoker=true) AS
 GRANT SELECT,INSERT ON TABLE private.conversations TO external_user;
 GRANT SELECT,INSERT ON TABLE conversations TO external_user;
 GRANT SELECT,INSERT ON TABLE private.conversations_inodes TO external_user;
+GRANT SELECT,INSERT ON TABLE conversations_inodes TO external_user;
 
 GRANT SELECT,INSERT,UPDATE ON TABLE private.prompts TO external_user;
 GRANT SELECT,INSERT,UPDATE ON TABLE prompts TO external_user;

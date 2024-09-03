@@ -24,6 +24,7 @@ CREATE POLICY sources_insight_worker ON private.sources TO insight_worker USING 
 CREATE TRIGGER set_prompt_owner BEFORE INSERT ON private.prompts FOR EACH ROW EXECUTE FUNCTION set_owner();
 
 DROP VIEW IF EXISTS conversations;
+DROP VIEW IF EXISTS conversations_inodes;
 DROP VIEW IF EXISTS prompts;
 
 -- Cleanup: Drop column conversation_id and embedding from prompts
