@@ -6,27 +6,6 @@ CREATE VIEW prompts WITH (security_invoker=true) AS
     SELECT * FROM private.prompts;
 GRANT SELECT,INSERT,UPDATE ON TABLE prompts TO external_user;
 
--- Create conversation with linked folder inodes
-CREATE OR REPLACE FUNCTION create_conversation(folders citext[])
-    RETURNS SETOF conversations
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-    conversation_id bigint;
-BEGIN
-    INSERT INTO private.conversations 
-        DEFAULT VALUES 
-        RETURNING id INTO conversation_id;
-
-    INSERT INTO private.conversations_inodes (conversation_id, inode_id)
-        SELECT conversation_id, i.id AS inode_id 
-        FROM private.inodes i
-        WHERE i.path = ANY(folders);
-
-    RETURN QUERY SELECT * FROM conversations WHERE id=conversation_id;
-END;
-$$;
-
 -- Link sources to prompt based on inodes linked to conversation
 CREATE OR REPLACE FUNCTION substantiate_prompt(prompt_id bigint, similarity_top_k int)
     RETURNS SETOF sources
