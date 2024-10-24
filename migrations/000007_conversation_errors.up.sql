@@ -1,6 +1,5 @@
 
 -- Create conversation with linked folder inodes
-DROP FUNCTION create_conversation(citext[]);
 CREATE OR REPLACE FUNCTION create_conversation(folders citext[])
     RETURNS SETOF private.conversations
     LANGUAGE plpgsql

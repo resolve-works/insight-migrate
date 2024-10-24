@@ -54,6 +54,5 @@ BEGIN
 END;
 $$;
 
-GRANT ALL ON FUNCTION create_conversation(citext[]) TO external_user;
 GRANT ALL ON FUNCTION substantiate_prompt(bigint, int) TO external_user;
 

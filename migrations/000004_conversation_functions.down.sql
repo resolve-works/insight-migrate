@@ -1,5 +1,4 @@
 
-DROP FUNCTION create_conversation(citext[]);
 DROP FUNCTION substantiate_prompt(bigint, int);
 
 DROP VIEW IF EXISTS prompts;
