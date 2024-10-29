@@ -8,6 +8,10 @@ BEGIN
         RETURN NEW;
     END IF;
 
+    IF NEW.parent_id IS NULL THEN
+        RETURN NEW;
+    END IF;
+
     -- If inode is private, mark it's public status same as it's parent
     SELECT is_public INTO NEW.is_public
     FROM private.inodes 
