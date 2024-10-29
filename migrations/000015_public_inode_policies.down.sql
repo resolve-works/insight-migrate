@@ -1,0 +1,16 @@
+
+DROP POLICY inodes_external_user ON private.inodes;
+DROP POLICY files_external_user ON private.files;
+DROP POLICY pages_external_user ON private.pages;
+
+CREATE POLICY inodes_external_user ON private.inodes 
+    USING ((owner_id = (((current_setting('request.jwt.claims'::text, true))::json ->> 'sub'::text))::uuid)) 
+    WITH CHECK ((owner_id = (((current_setting('request.jwt.claims'::text, true))::json ->> 'sub'::text))::uuid));
+
+CREATE POLICY files_external_user ON private.files USING ((inode_id = ( SELECT inodes.id
+   FROM private.inodes
+  WHERE (inodes.id = files.inode_id))));
+
+CREATE POLICY pages_external_user ON private.pages USING ((inode_id = ( SELECT inodes.id
+   FROM private.inodes
+  WHERE (inodes.id = pages.inode_id))));
