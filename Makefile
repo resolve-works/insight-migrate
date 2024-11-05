@@ -42,3 +42,6 @@ shell:
 
 dump_schema:
 	docker run -it --network=host postgres pg_dump --schema-only $(uri)
+
+dump_db:
+	docker run -it --network=host postgres pg_dump $(uri)
