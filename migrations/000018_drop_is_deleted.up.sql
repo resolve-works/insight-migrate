@@ -1,56 +1,17 @@
 
 SELECT drop_public_schema();
 
-ALTER TABLE private.inodes ADD COLUMN is_uploaded boolean DEFAULT false NOT NULL;
-ALTER TABLE private.inodes ADD COLUMN is_ingested boolean DEFAULT false NOT NULL;
-ALTER TABLE private.inodes ADD COLUMN is_embedded boolean DEFAULT false NOT NULL;
-ALTER TABLE private.inodes ADD COLUMN is_ready boolean GENERATED ALWAYS 
-    AS ((is_indexed AND is_uploaded AND is_ingested AND is_embedded)) STORED;
-ALTER TABLE private.inodes ADD COLUMN from_page integer DEFAULT 0 NOT NULL;
-ALTER TABLE private.inodes ADD COLUMN to_page integer;
-ALTER TABLE private.inodes ADD COLUMN error public.file_error;
+-- Irreversable migration
+DELETE FROM private.inodes WHERE is_deleted = True;
+ALTER TABLE private.inodes DROP COLUMN is_deleted;
 
--- Insert from files into inodes
-UPDATE private.inodes i
-SET
-  is_uploaded = f.is_uploaded,
-  is_ingested = f.is_ingested,
-  is_embedded = f.is_embedded,
-  from_page = f.from_page,
-  to_page = f.to_page,
-  error = f.error
-FROM private.files f
-WHERE i.id = f.inode_id;
-
-DROP TABLE private.files;
-
--- Update public schema functions to not build files view
-
-CREATE OR REPLACE FUNCTION drop_public_schema() 
-    RETURNS void
-    LANGUAGE plpgsql 
-    AS $OUTER$
-BEGIN
-    DROP FUNCTION ancestors(inodes);
-    DROP FUNCTION create_conversation(citext[]);
-    DROP FUNCTION substantiate_prompt(bigint, int);
-
-    DROP VIEW inodes;
-    DROP VIEW sources;
-    DROP VIEW conversations;
-    DROP VIEW conversations_inodes;
-    DROP VIEW pages;
-    DROP VIEW prompts;
-END
-$OUTER$;
-
--- Build all of the public API schema
+-- Remove is_deleted filter from inodes view
 CREATE OR REPLACE FUNCTION create_public_schema() 
     RETURNS void
     LANGUAGE plpgsql 
     AS $OUTER$
 BEGIN
-    CREATE VIEW inodes WITH (security_invoker=true) AS SELECT * FROM private.inodes WHERE (is_deleted = false);
+    CREATE VIEW inodes WITH (security_invoker=true) AS SELECT * FROM private.inodes;
     GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE inodes TO external_user;
     GRANT ALL ON TABLE inodes TO insight_worker;
 
