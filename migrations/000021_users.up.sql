@@ -1,57 +1,70 @@
 
 SELECT drop_public_schema();
 
-ALTER TABLE private.inodes ADD COLUMN is_uploaded boolean DEFAULT false NOT NULL;
-ALTER TABLE private.inodes ADD COLUMN is_ingested boolean DEFAULT false NOT NULL;
-ALTER TABLE private.inodes ADD COLUMN is_embedded boolean DEFAULT false NOT NULL;
-ALTER TABLE private.inodes ADD COLUMN is_ready boolean GENERATED ALWAYS 
-    AS ((is_indexed AND is_uploaded AND is_ingested AND is_embedded)) STORED;
-ALTER TABLE private.inodes ADD COLUMN from_page integer DEFAULT 0 NOT NULL;
-ALTER TABLE private.inodes ADD COLUMN to_page integer;
-ALTER TABLE private.inodes ADD COLUMN error public.file_error;
+-- Create users table
+CREATE TABLE private.users (
+    id uuid PRIMARY KEY,
+    name text,
+    email text,
+    obfuscated_email text GENERATED ALWAYS AS (
+        REGEXP_REPLACE(SPLIT_PART(email, '@', 1), '.', '*', 'g') || '@' || SPLIT_PART(email, '@', 2)
+    ) STORED
+);
 
--- Insert from files into inodes
-UPDATE private.inodes i
-SET
-  is_uploaded = f.is_uploaded,
-  is_ingested = f.is_ingested,
-  is_embedded = f.is_embedded,
-  from_page = f.from_page,
-  to_page = f.to_page,
-  error = f.error
-FROM private.files f
-WHERE i.id = f.inode_id;
+GRANT SELECT,INSERT,UPDATE ON TABLE private.users TO external_user;
+GRANT SELECT ON TABLE private.users TO insight_worker;
 
-DROP TABLE private.files;
+-- Insert owner_ids from inodes and conversations into users table
+INSERT INTO private.users (id)
+    SELECT owner_id as id
+    FROM private.inodes
+    ON CONFLICT (id) DO NOTHING;
 
--- Update public schema functions to not build files view
-CREATE OR REPLACE FUNCTION drop_public_schema() 
-    RETURNS void
-    LANGUAGE plpgsql 
-    AS $OUTER$
+INSERT INTO private.users (id)
+    SELECT owner_id as id
+    FROM private.conversations
+    ON CONFLICT (id) DO NOTHING;
+
+-- Make owner_ids foreign key relations
+ALTER TABLE private.inodes ADD FOREIGN KEY (owner_id) REFERENCES private.users(id);
+ALTER TABLE private.conversations ADD FOREIGN KEY (owner_id) REFERENCES private.users(id);
+
+-- It's possible for a insert request to come in without the user being in the
+-- users table. Upsert the users table in set_owner
+CREATE OR REPLACE FUNCTION private.set_owner() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    owner_id uuid := current_setting('request.jwt.claims', TRUE)::json ->> 'sub';
+    email_claim text := current_setting('request.jwt.claims', TRUE)::json ->> 'email';
+    name_claim text := current_setting('request.jwt.claims', TRUE)::json ->> 'name';
 BEGIN
-    DROP FUNCTION ancestors(inodes);
-    DROP FUNCTION create_conversation(citext[]);
-    DROP FUNCTION substantiate_prompt(bigint, int);
+    INSERT INTO private.users (id, email, name)
+        VALUES (owner_id, email_claim, name_claim)
+        ON CONFLICT (id)
+        DO UPDATE SET email=EXCLUDED.email, name=EXCLUDED.name;
 
-    DROP VIEW inodes;
-    DROP VIEW sources;
-    DROP VIEW conversations;
-    DROP VIEW conversations_inodes;
-    DROP VIEW pages;
-    DROP VIEW prompts;
+    NEW.owner_id = owner_id;
+    RETURN NEW;
 END
-$OUTER$;
+$$;
 
--- Build all of the public API schema
+-- Remove is_deleted filter from inodes view
 CREATE OR REPLACE FUNCTION create_public_schema() 
     RETURNS void
     LANGUAGE plpgsql 
     AS $OUTER$
 BEGIN
-    CREATE VIEW inodes WITH (security_invoker=true) AS SELECT * FROM private.inodes WHERE (is_deleted = false);
+    CREATE VIEW inodes WITH (security_invoker=true) AS 
+    SELECT *, owner_id = (current_setting('request.jwt.claims', TRUE)::json ->> 'sub')::uuid as is_owned
+    FROM private.inodes;
     GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE inodes TO external_user;
     GRANT ALL ON TABLE inodes TO insight_worker;
+
+    -- Obfuscate email addresses
+    CREATE VIEW users AS SELECT id, name, obfuscated_email as email FROM private.users;
+    GRANT SELECT ON TABLE users TO external_user;
+    GRANT SELECT ON TABLE users TO insight_worker;
 
     CREATE VIEW pages WITH (security_invoker=true) AS SELECT * FROM private.pages;
     GRANT SELECT ON TABLE pages TO external_user;
@@ -169,6 +182,26 @@ BEGIN
     $$;
 
     GRANT ALL ON FUNCTION substantiate_prompt(bigint, int) TO external_user;
+END
+$OUTER$;
+
+-- Also drop users view
+CREATE OR REPLACE FUNCTION drop_public_schema() 
+    RETURNS void
+    LANGUAGE plpgsql 
+    AS $OUTER$
+BEGIN
+    DROP FUNCTION ancestors(inodes);
+    DROP FUNCTION create_conversation(citext[]);
+    DROP FUNCTION substantiate_prompt(bigint, int);
+
+    DROP VIEW inodes;
+    DROP VIEW users;
+    DROP VIEW sources;
+    DROP VIEW conversations;
+    DROP VIEW conversations_inodes;
+    DROP VIEW pages;
+    DROP VIEW prompts;
 END
 $OUTER$;
 
