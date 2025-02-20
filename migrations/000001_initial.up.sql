@@ -1,4 +1,22 @@
 
+GRANT EXECUTE ON FUNCTION vector TO insight_worker;
+GRANT EXECUTE ON FUNCTION vector TO external_user;
+GRANT EXECUTE ON FUNCTION cosine_distance(vector, vector) TO insight_worker;
+GRANT EXECUTE ON FUNCTION cosine_distance(vector, vector) TO external_user;
+GRANT EXECUTE ON FUNCTION vector_negative_inner_product(vector, vector) TO external_user;
+GRANT EXECUTE ON FUNCTION citext_eq TO insight_worker;
+GRANT EXECUTE ON FUNCTION citext_eq TO external_user;
+GRANT EXECUTE ON FUNCTION vector_to_halfvec TO insight_worker;
+
+GRANT usage ON SCHEMA public TO external_user;
+GRANT usage ON SCHEMA private TO external_user;
+GRANT usage ON SCHEMA public TO insight_worker;
+GRANT usage ON SCHEMA private TO insight_worker;
+GRANT usage ON SCHEMA private TO debezium;
+
+CREATE PUBLICATION dbz_publication FOR TABLE private.inodes;
+GRANT SELECT ON TABLE private.inodes to debezium;
+
 CREATE TYPE inode_type AS ENUM ('folder', 'file');
 
 CREATE TABLE private.inodes (
