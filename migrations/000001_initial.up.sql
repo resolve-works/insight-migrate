@@ -14,9 +14,6 @@ GRANT usage ON SCHEMA public TO insight_worker;
 GRANT usage ON SCHEMA private TO insight_worker;
 GRANT usage ON SCHEMA private TO debezium;
 
-CREATE PUBLICATION dbz_publication FOR TABLE private.inodes;
-GRANT SELECT ON TABLE private.inodes to debezium;
-
 CREATE TYPE inode_type AS ENUM ('folder', 'file');
 
 CREATE TABLE private.inodes (
@@ -206,6 +203,9 @@ CREATE POLICY sources_external_worker ON private.sources USING ((prompt_id = ( S
    FROM private.prompts
   WHERE (prompts.id = sources.prompt_id))));
 CREATE POLICY sources_insight_worker ON private.sources TO insight_worker USING (true) WITH CHECK (true);
+
+CREATE PUBLICATION dbz_publication FOR TABLE private.inodes;
+GRANT SELECT ON TABLE private.inodes to debezium;
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE private.inodes TO external_user;
 GRANT ALL ON TABLE private.inodes TO insight_worker;
